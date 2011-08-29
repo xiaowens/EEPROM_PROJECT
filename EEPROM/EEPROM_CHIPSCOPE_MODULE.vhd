@@ -52,45 +52,35 @@ end EEPROM_CHIPSCOPE_MODULE;
 architecture Behavioral of EEPROM_CHIPSCOPE_MODULE is
 --=========================================================================================
 	----------------------------------------------------------------------------------------
-	COMPONENT EEPROM_I2C_INTERFACE_READ is
-	generic(
-		PAGE_SIZE			: integer := 32
+	COMPONENT EEPROM_I2C_INTERFACE is
+		generic(
+		CONSTANT PAGE_SIZE			: integer := 32
 		);
 	port(
 		CLK		: IN	STD_LOGIC;
 		ADDRESS		: IN	STD_LOGIC_VECTOR(12 DOWNTO 0);
-		COMMAND		: IN	STD_LOGIC_VECTOR(2 DOWNTO 0);
+		
+		COMMAND							: IN		STD_LOGIC_VECTOR(2 DOWNTO 0);
+	
 		----------------------------------------------
 		--total # of bytes to read from EEPROM
 		--it will be the index of bytes when transfer out the data 
 		NUM_OF_BYTES	: IN	STD_LOGIC_VECTOR(5 DOWNTO 0);	
 		----------------------------------------------
 		EXECUTE		: IN	STD_LOGIC;
-		state_I2C	: OUT	STD_LOGIC_VECTOR(2 DOWNTO 0);	--for debugging
-		COMMAND_RUNNING	: OUT	STD_LOGIC_VECTOR(2 DOWNTO 0);
-		INDEX_OF_BYTES	: OUT STD_LOGIC_VECTOR(4 DOWNTO 0);	--MAX # OF BYTES => 2^5=32 BYTES
-		DATA_OUT_BYTE	: OUT	STD_LOGIC_VECTOR(7 DOWNTO 0);
 		
-		SCL	: INOUT STD_LOGIC;
-		SDA	: INOUT STD_LOGIC
-		);
+		COMMAND_RUNNING	: OUT	STD_LOGIC_VECTOR(2 DOWNTO 0);
+		
+		INDEX_OF_BYTES	: OUT STD_LOGIC_VECTOR(4 DOWNTO 0);	--showing which byte is transferred out. MAX # OF BYTES => 2^5=32 BYTES
+		DATA_OUT_BYTE	: OUT	STD_LOGIC_VECTOR(7 DOWNTO 0);
+		DATA_IN_BYTE					: IN		STD_LOGIC_VECTOR(7 DOWNTO 0);
+		
+		SCL				: INOUT STD_LOGIC;
+		SDA				: INOUT STD_LOGIC
+
+			);
 	end COMPONENT;
 	
-	component EEPROM_I2C_INTERFACE_WRITE
-	--generic(
-		--PAGE_SIZE			: unsigned := 32
-		--);
-	port(
-		CLK								: IN		STD_LOGIC;
-		DATA_IN_BYTE					: IN		STD_LOGIC_VECTOR(7 DOWNTO 0);
-		COMMAND							: IN		STD_LOGIC_VECTOR(2 DOWNTO 0);
-		EXECUTE							: IN		STD_LOGIC;
-		COMMAND_RUNNING					: OUT		STD_LOGIC_vector(2 DOWNTO 0);
-
-		SCL		: INOUT STD_LOGIC;
-		SDA		: INOUT STD_LOGIC
-		);
-	end component EEPROM_I2C_INTERFACE_WRITE;
 	--------------------CHIPSCOPE-----------------------------------------
 	component ICON
 		PORT (
@@ -110,30 +100,26 @@ architecture Behavioral of EEPROM_CHIPSCOPE_MODULE is
 	----------------------------------------------------------------------------
 
 --===============================SIGNAL BEGIN=================================================================
-	SIGNAL COMMAND_READ					: STD_LOGIC_VECTOR(2 DOWNTO 0);
-	SIGNAL ADDRESS_READ					: STD_LOGIC_VECTOR(12 DOWNTO 0);
-	SIGNAL NUM_OF_BYTES_READ			: STD_LOGIC_VECTOR(5 DOWNTO 0);
-	SIGNAL COMMAND_RUNNING_READ		: STD_LOGIC_vector(2 downto 0);
-	SIGNAL INDEX_OF_BYTES_READ			: STD_LOGIC_VECTOR(4 DOWNTO 0);
-	SIGNAL EXECUTE_READ					: STD_LOGIC := '0'; 
-	SIGNAL SCL_READ						: STD_LOGIC;
-	SIGNAL SDA_READ						: STD_LOGIC;
-	signal DATA_OUT_BYTE_READ			: std_logic_vector(7 downto 0);
-	---------------------------------------------------------------------------
-	signal DATA_IN_BYTE_WRITE			: STD_LOGIC_VECTOR(7 DOWNTO 0);
-	SIGNAL COMMAND_WRITE					: STD_LOGIC_VECTOR(2 DOWNTO 0);	
-	SIGNAL COMMAND_RUNNING_WRITE		: STD_LOGIC_VECTOR(2 DOWNTO 0);
-	SIGNAL EXECUTE_WRITE					: STD_LOGIC := '0';
-	signal SCL_WRITE						: std_logic;
-	SIGNAL SDA_WRITE						: std_logic;
+	SIGNAL COMMAND_EEPROM					: STD_LOGIC_VECTOR(2 DOWNTO 0);
+	SIGNAL ADDRESS_EEPROM					: STD_LOGIC_VECTOR(12 DOWNTO 0);
+	SIGNAL NUM_OF_BYTES_EEPROM			: STD_LOGIC_VECTOR(5 DOWNTO 0);
+	SIGNAL COMMAND_RUNNING_EEPROM		: STD_LOGIC_vector(2 downto 0);
+	SIGNAL INDEX_OF_BYTES_EEPROM			: STD_LOGIC_VECTOR(4 DOWNTO 0);
+	SIGNAL EXECUTE_EEPROM					: STD_LOGIC := '0'; 
+	SIGNAL SCL_EEPROM						: STD_LOGIC;
+	SIGNAL SDA_EEPROM						: STD_LOGIC;
+	signal DATA_OUT_BYTE_EEPROM			: std_logic_vector(7 downto 0);
+	signal DATA_IN_BYTE_EEPROM			: STD_LOGIC_VECTOR(7 DOWNTO 0);
+
 	---------------------------------------------------------------------------
 	SIGNAL CLK_COUNTER					: UNSIGNED(9 DOWNTO 0) := x"00"&"00";
+	SIGNAL EEPROM_POWER					: STD_LOGIC := '1';
 	
 	SIGNAL SCL_INTERNAL	: STD_LOGIC;
 	SIGNAL SDA_INTERNAL	: STD_LOGIC;
 	
-	SIGNAL SCL_INTERNAL_MON	: STD_LOGIC;
-	SIGNAL SDA_INTERNAL_MON	: STD_LOGIC;
+	--SIGNAL SCL_INTERNAL_MON	: STD_LOGIC;
+	--SIGNAL SDA_INTERNAL_MON	: STD_LOGIC;
 	
 	SIGNAL INTERNAL_CHIPSCOPE_CONTROL : STD_LOGIC_VECTOR(35 DOWNTO 0);
 	SIGNAL INTERNAL_CHIPSCOPE_VIO_IN : STD_LOGIC_VECTOR(255 DOWNTO 0);
@@ -143,45 +129,32 @@ architecture Behavioral of EEPROM_CHIPSCOPE_MODULE is
 begin
 --=================================================================================
 	--****************Power and Write Protection**************
-	VCC_PIN <= '1';
+	--VCC_PIN <= '1';
 	--WP_PIN <= '1';		--WRITE PRECTED ENABLED. READ ONLY. 
+	VCC_PIN <= EEPROM_POWER;
 	WP_PIN <= '0';
 	--********************************************************
 	---------------------------------------------------------	
-	eeprom_read		: EEPROM_I2C_INTERFACE_READ
+	eeprom		: EEPROM_I2C_INTERFACE
 	port map (
 		CLK			=> CLK_COUNTER(9),
-		ADDRESS		=> ADDRESS_READ,
-		COMMAND		=> COMMAND_READ,
-		----------------------------------------------
-		--total # of bytes to read from EEPROM
-		--it will be the index of bytes when transfer out the data 
-		NUM_OF_BYTES		=>	NUM_OF_BYTES_READ,
-		----------------------------------------------
-		EXECUTE				=> EXECUTE_READ,
+		ADDRESS		=> ADDRESS_EEPROM,
+		COMMAND		=> COMMAND_EEPROM,
+		NUM_OF_BYTES		=>	NUM_OF_BYTES_EEPROM,
 		
-		COMMAND_RUNNING	=> COMMAND_RUNNING_READ,
-		INDEX_OF_BYTES		=> INDEX_OF_BYTES_READ,
-		DATA_OUT_BYTE		=> DATA_OUT_BYTE_READ,
+		EXECUTE				=> EXECUTE_EEPROM,
 		
-		SCL	=> SCL_READ,
-		SDA	=> SDA_READ
---		SCL					=> SCL_INTERNAL,
---		SDA					=> SDA_INTERNAL
+		COMMAND_RUNNING	=> COMMAND_RUNNING_EEPROM,
+		INDEX_OF_BYTES		=> INDEX_OF_BYTES_EEPROM,
+		DATA_OUT_BYTE		=> DATA_OUT_BYTE_EEPROM,
+		DATA_IN_BYTE		=> DATA_IN_BYTE_EEPROM,
+		
+		SCL	=> SCL_EEPROM,
+		SDA	=> SDA_EEPROM
+
 		);
 		
-	EEPROM_WRITE : EEPROM_I2C_INTERFACE_WRITE
-	port map (
-		CLK					=> CLK_COUNTER(9),
-		DATA_IN_BYTE		=> DATA_IN_BYTE_WRITE,
-		COMMAND				=> COMMAND_WRITE,
-		COMMAND_RUNNING	=> COMMAND_RUNNING_WRITE,
-		EXECUTE				=> EXECUTE_WRITE,
-		SCL					=> SCL_WRITE,
-		SDA					=> SDA_WRITE
---		SCL					=> SCL_INTERNAL,
---		SDA					=> SDA_INTERNAL
-		);
+
 	---------------------------------------------------------
 	CHIPSCOPE_ICON : ICON
 	PORT MAP (
@@ -211,42 +184,40 @@ begin
 
 	process (CLK_COUNTER(9))
 		--======================================================================
-		-----------COMMAND FOR EEPROM_I2C_INTERFACE_READ MODULE----------------
+		-----------COMMAND FOR EEPROM_I2C_INTERFACE MODULE----------------
 		CONSTANT CMD_CHECK_COMMAND			: STD_LOGIC_VECTOR(2 DOWNTO 0) := "000";
-		CONSTANT CMD_SET_ADDRESS			: STD_LOGIC_VECTOR(2 DOWNTO 0) := "001";
-		CONSTANT CMD_READ_EEPROM			: STD_LOGIC_VECTOR(2 DOWNTO 0) := "010";
-		CONSTANT CMD_TRANSFER_READ_OUT	: STD_LOGIC_VECTOR(2 DOWNTO 0) := "011";
+		CONSTANT CMD_SET_ADDRESS			: STD_LOGIC_VECTOR(2 DOWNTO 0) := "101";
+		CONSTANT CMD_READ_EEPROM			: STD_LOGIC_VECTOR(2 DOWNTO 0) := "110";
+		CONSTANT CMD_TRANSFER_READ_OUT	: STD_LOGIC_VECTOR(2 DOWNTO 0) := "111";
 		
-	-----------COMMAND FOR EEPROM INTERFACE USED HERE----------------
 		CONSTANT CMD_SAVE_DATA_BYTE				: STD_LOGIC_VECTOR(2 DOWNTO 0) := "001"; 
 		CONSTANT CMD_WRITE_TO_EEPROM_BYTES		: STD_LOGIC_VECTOR(2 DOWNTO 0) := "010";
 		CONSTANT CMD_RESET_EEPROM_ADDRESS		: STD_LOGIC_VECTOR(2 DOWNTO 0) := "011";
 		CONSTANT CMD_RESET_BYTES_SAVED			: STD_LOGIC_VECTOR(2 DOWNTO 0) := "100";
-		--CONSTANT CMD_CHECK_COMMAND					: STD_LOGIC_VECTOR(2 DOWNTO 0) := "000";
 	-----------------------------------------------------------------
 	type DATA_BYTES_TYPE is array(0 TO STRING_SIZE - 1) of std_logic_vector(7 downto 0);
 	
-	variable bytes_to_write					: DATA_BYTES_TYPE :=
-				(0 	=> x"53",	--S
-				 1 	=> x"43",	--C
-				 2 	=> x"52",	--R
-				 3 	=> x"4F",	--O
-				 4 	=> x"44",	--D
-				 5 	=> x"20",	--SPACE
-				 6 	=> x"72",	--r
-				 7 	=> x"65",	--e
-				 8 	=> x"76",	--v
-				 9 	=> x"41",	--A
-				 10 	=> x"20",	--space
-				 11 	=> x"49",	--I
-				 12 	=> x"44",   --D
-				 13 	=> x"20",	--space
-				 14 	=> x"00",
-				 15 	=> x"01"
-				 
-					
-				);
-	
+	variable bytes_to_write					: DATA_BYTES_TYPE := (OTHERS => x"20"); --default: "space"
+--				(0 	=> x"53",	--S
+--				 1 	=> x"43",	--C
+--				 2 	=> x"52",	--R
+--				 3 	=> x"4F",	--O
+--				 4 	=> x"44",	--D
+--				 5 	=> x"20",	--SPACE
+--				 6 	=> x"72",	--r
+--				 7 	=> x"65",	--e
+--				 8 	=> x"76",	--v
+--				 9 	=> x"41",	--A
+--				 10 	=> x"20",	--space
+--				 11 	=> x"49",	--I
+--				 12 	=> x"44",   --D
+--				 13 	=> x"20",	--space
+--				 14 	=> x"00",
+--				 15 	=> x"01"
+--				 
+--					
+--				);
+--	
 	variable bytes_to_write_counter		: integer range 0 to STRING_SIZE := 0;
 	
 	variable bytes_after_read				: DATA_BYTES_TYPE;
@@ -258,65 +229,65 @@ begin
 
 		--======================================================================
 	BEGIN
-		--LED <= DATA_OUT_BYTE_READ;
+		--LED <= DATA_OUT_BYTE_EEPROM;
 		IF RISING_EDGE(CLK_COUNTER(9)) THEN
 			
 			
 			--#############################
-			IF (EXECUTE_READ = '1') THEN
-				EXECUTE_READ <= '0';
+			IF (EXECUTE_EEPROM = '1') THEN
+				EXECUTE_EEPROM <= '0';
 			END IF;
 			
-			IF EXECUTE_WRITE = '1' THEN
-				EXECUTE_WRITE <= '0';			--RESET SIGNAL 'EXECUTE' TO '0'!
+			IF EXECUTE_EEPROM = '1' THEN
+				EXECUTE_EEPROM <= '0';			--RESET SIGNAL 'EXECUTE' TO '0'!
 			END IF;
 			--#############################
 			
 			if INTERNAL_CHIPSCOPE_VIO_OUT(141) = '1' and 
 						INTERNAL_CHIPSCOPE_VIO_OUT(142) /= '1' then	--'Read' signal from Chipscope
-				SCL_INTERNAL <= SCL_READ;
-				SDA_INTERNAL <= SDA_READ;
+		
 				if step_counter = 0 then
-					if COMMAND_RUNNING_READ = CMD_CHECK_COMMAND then
-						ADDRESS_READ <= "0" & x"000";		--13 bits of address
-						COMMAND_READ <= CMD_SET_ADDRESS;
-						EXECUTE_READ <= '1';
+					if COMMAND_RUNNING_EEPROM = CMD_CHECK_COMMAND then
+						--ADDRESS_EEPROM <= "0" & x"000";		--13 bits of address
+						ADDRESS_EEPROM <= INTERNAL_CHIPSCOPE_VIO_OUT(140 downto 128);
+						COMMAND_EEPROM <= CMD_SET_ADDRESS;
+						EXECUTE_EEPROM <= '1';
 						step_counter := step_counter + 1;
 					end if; 
 				elsif step_counter = 1 then
-					if COMMAND_RUNNING_READ = CMD_SET_ADDRESS then
+					if COMMAND_RUNNING_EEPROM = CMD_SET_ADDRESS then
 						step_counter := step_counter + 1;
 					end if;
 				elsif step_counter = 2 then
-					if COMMAND_RUNNING_READ = CMD_CHECK_COMMAND then
-						--NUM_OF_BYTES_READ <= "100000";		--read 32 bytes 
-						NUM_OF_BYTES_READ <= std_logic_vector(to_unsigned(STRING_SIZE, 6));		--READ 'STRING_SIZE' BYTES
-						COMMAND_READ <= CMD_READ_EEPROM;
-						EXECUTE_READ <= '1';
+					if COMMAND_RUNNING_EEPROM = CMD_CHECK_COMMAND then
+						--NUM_OF_BYTES_EEPROM <= "100000";		--read 32 bytes 
+						NUM_OF_BYTES_EEPROM <= std_logic_vector(to_unsigned(STRING_SIZE, 6));		--READ 'STRING_SIZE' BYTES
+						COMMAND_EEPROM <= CMD_READ_EEPROM;
+						EXECUTE_EEPROM <= '1';
 						step_counter := step_counter + 1;
 					end if; 
 				elsif step_counter = 3 then
-					if COMMAND_RUNNING_READ = CMD_READ_EEPROM then
+					if COMMAND_RUNNING_EEPROM = CMD_READ_EEPROM then
 						step_counter := step_counter + 1;
 					end if;
 				
 				elsif step_counter = 4 then
 					if bytes_after_read_counter < STRING_SIZE then
 						if sub_step_counter = 0  then
-							if COMMAND_RUNNING_READ = CMD_CHECK_COMMAND then
-								NUM_OF_BYTES_READ <= std_logic_vector(to_unsigned(bytes_after_read_counter, 6));
-								COMMAND_READ <= CMD_TRANSFER_READ_OUT;
-								EXECUTE_READ <= '1';
+							if COMMAND_RUNNING_EEPROM = CMD_CHECK_COMMAND then
+								NUM_OF_BYTES_EEPROM <= std_logic_vector(to_unsigned(bytes_after_read_counter, 6));
+								COMMAND_EEPROM <= CMD_TRANSFER_READ_OUT;
+								EXECUTE_EEPROM <= '1';
 								sub_step_counter := sub_step_counter + 1;
 							end if;
 						elsif sub_step_counter = 1 then
-							if COMMAND_RUNNING_READ = CMD_TRANSFER_READ_OUT then
+							if COMMAND_RUNNING_EEPROM = CMD_TRANSFER_READ_OUT then
 								sub_step_counter := sub_step_counter + 1;
 							end if;
 						
 						else
-							if COMMAND_RUNNING_READ = CMD_CHECK_COMMAND then
-								bytes_after_read(bytes_after_read_counter) := DATA_OUT_BYTE_READ;
+							if COMMAND_RUNNING_EEPROM = CMD_CHECK_COMMAND then
+								bytes_after_read(bytes_after_read_counter) := DATA_OUT_BYTE_EEPROM;
 								bytes_after_read_counter := bytes_after_read_counter + 1;
 								sub_step_counter := 0;
 							end if;
@@ -343,8 +314,7 @@ begin
 			------------------------Write Part---------------------------------------------------------		
 			elsif INTERNAL_CHIPSCOPE_VIO_OUT(141) /= '1' and 
 						INTERNAL_CHIPSCOPE_VIO_OUT(142) = '1' then	--when 'Write' signal from Chipscope is 'on'
-				SCL_INTERNAL <= SCL_WRITE;
-				SDA_INTERNAL <= SDA_WRITE;
+				
 				for i in 0 to STRING_SIZE-1 loop
 					bytes_to_write(i) := internal_CHIPSCOPE_VIO_OUT(7+8*i downto 0+8*i);
 						
@@ -353,65 +323,77 @@ begin
 				
 			
 				if counter = 0 then
-					if COMMAND_RUNNING_WRITE = CMD_CHECK_COMMAND then
-						COMMAND_WRITE <= CMD_RESET_BYTES_SAVED;	--clear bytes saved
-						EXECUTE_WRITE <= '1';
+					if COMMAND_RUNNING_EEPROM = CMD_CHECK_COMMAND then
+						COMMAND_EEPROM <= CMD_RESET_BYTES_SAVED;	--clear bytes saved
+						EXECUTE_EEPROM <= '1';
 						counter := counter + 1;
 					end if;
 				elsif counter = 1 then
-					if COMMAND_RUNNING_WRITE = CMD_RESET_BYTES_SAVED then	
+					if COMMAND_RUNNING_EEPROM = CMD_RESET_BYTES_SAVED then	
 						counter := counter + 1;
 					end if;
 
 				elsif counter = 2 then	--transfer all the data in the array.
 					if bytes_to_write_counter < STRING_SIZE then
 						if step_counter = 0 then
-							if COMMAND_RUNNING_WRITE = CMD_CHECK_COMMAND then	
-								DATA_IN_BYTE_WRITE <= bytes_to_write(bytes_to_write_counter);
-								COMMAND_WRITE <= CMD_SAVE_DATA_BYTE;	--SAVE THE BYTE
-								EXECUTE_WRITE <= '1';
+							if COMMAND_RUNNING_EEPROM = CMD_CHECK_COMMAND then	
+								DATA_IN_BYTE_EEPROM <= bytes_to_write(bytes_to_write_counter);
+								COMMAND_EEPROM <= CMD_SAVE_DATA_BYTE;	--SAVE THE BYTE
+								EXECUTE_EEPROM <= '1';
 								step_counter := step_counter + 1;
 							end if;
 						elsif step_counter = 1 then
-							if COMMAND_RUNNING_WRITE = CMD_SAVE_DATA_BYTE then
+							if COMMAND_RUNNING_EEPROM = CMD_SAVE_DATA_BYTE then
 								bytes_to_write_counter := bytes_to_write_counter + 1;
 								step_counter := 0;
 							end if;
 						end if;
 					else	--all bytes are sent to EEPROM_write module
 						--counter := counter + 1;
-						counter := 5;
+						counter := 7;
 					end if;
 				
-				elsif counter = 5 then
-					if COMMAND_RUNNING_WRITE = CMD_CHECK_COMMAND then
-						
-						COMMAND_WRITE <= CMD_RESET_EEPROM_ADDRESS;	--RESET THE EEPROM ADDRESS
-						EXECUTE_WRITE <= '1';
-						counter := counter + 1;
-					end if;
-				elsif counter = 6 then
-						if COMMAND_RUNNING_WRITE = CMD_RESET_EEPROM_ADDRESS then
-							counter := counter + 1;
-						end if;		
+--				elsif counter = 5 then
+--					if COMMAND_RUNNING_EEPROM = CMD_CHECK_COMMAND then
+--						ADDRESS_EEPROM <= INTERNAL_CHIPSCOPE_VIO_OUT(140 downto 128);
+--						COMMAND_EEPROM <= CMD_SET_ADDRESS;
+--						EXECUTE_EEPROM <= '1';
+--						step_counter := step_counter + 1;
+--					end if; 
+--				elsif step_counter = 6 then
+--					if COMMAND_RUNNING_EEPROM = CMD_SET_ADDRESS then
+--						step_counter := step_counter + 1;
+--					end if;
+				
+--					if COMMAND_RUNNING_EEPROM = CMD_CHECK_COMMAND then
+--						
+--						COMMAND_EEPROM <= CMD_RESET_EEPROM_ADDRESS;	--RESET THE EEPROM ADDRESS
+--						EXECUTE_EEPROM <= '1';
+--						counter := counter + 1;
+--					end if;
+--				elsif counter = 6 then
+--						if COMMAND_RUNNING_EEPROM = CMD_RESET_EEPROM_ADDRESS then
+--							counter := counter + 1;
+--						end if;		
 				
 				
 				elsif counter = 7 then
-					if COMMAND_RUNNING_WRITE = CMD_CHECK_COMMAND then		
-						COMMAND_WRITE <= CMD_WRITE_TO_EEPROM_BYTES;	--WRITE DATA TO EEPROM
-						EXECUTE_WRITE <= '1';
+					if COMMAND_RUNNING_EEPROM = CMD_CHECK_COMMAND then		
+						ADDRESS_EEPROM <= INTERNAL_CHIPSCOPE_VIO_OUT(140 downto 128);
+						COMMAND_EEPROM <= CMD_WRITE_TO_EEPROM_BYTES;	--WRITE DATA TO EEPROM
+						EXECUTE_EEPROM <= '1';
 						counter := counter + 1;
 					end if;
 				elsif counter = 8 then
 					
-					if COMMAND_RUNNING_WRITE = CMD_WRITE_TO_EEPROM_BYTES then		
+					if COMMAND_RUNNING_EEPROM = CMD_WRITE_TO_EEPROM_BYTES then		
 						counter := counter + 1;
 						
 					end if;
 				else 
-					if COMMAND_RUNNING_WRITE = CMD_CHECK_COMMAND then	
+					if COMMAND_RUNNING_EEPROM = CMD_CHECK_COMMAND then	
 						internal_CHIPSCOPE_VIO_IN(128) <= '1';
-						
+						--EEPROM_POWER <= '0';	--POWER OFF EEPROM (TESTING NOT SURE IF IT WORKS)
 					end if;
 				end if;
 						
@@ -420,8 +402,14 @@ begin
 				counter := 0;
 				step_counter := 0;
 				internal_CHIPSCOPE_VIO_IN(128) <= '0';
-			else
+				--EEPROM_POWER <= '0';	--POWER off EEPROM (TESTING NOT SURE IF IT WORKS)
 				
+--			elsif INTERNAL_CHIPSCOPE_VIO_OUT(141) = '0' and 
+--						INTERNAL_CHIPSCOPE_VIO_OUT(142) = '0' then 
+--				EEPROM_POWER <= '0';
+--			elsif INTERNAL_CHIPSCOPE_VIO_OUT(141) = '1' and 
+--						INTERNAL_CHIPSCOPE_VIO_OUT(142) = '1' then 
+--				EEPROM_POWER <= '1';
 			end if;
 			
 
@@ -434,13 +422,13 @@ begin
 --	SDA_INTERNAL_MON <= SDA_INTERNAL;
 --	
 	mon(0) <= CLK_COUNTER(9);
-	mon(1) <= SCL_INTERNAL;
-	mon(2) <= SDA_INTERNAL;
+	mon(1) <= SCL_EEPROM;
+	mon(2) <= SDA_EEPROM;
 	
 	
 
-	SCL <= SCL_INTERNAL;
-	SDA <= SDA_INTERNAL;
+	SCL <= SCL_EEPROM;
+	SDA <= SDA_EEPROM;
 
 --=================================================================================
 end Behavioral;

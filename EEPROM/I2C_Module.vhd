@@ -113,8 +113,9 @@ begin
 			-------------------------------------------------------------
 			WHEN st_check_state =>
 				COMMAND_RUNNING <= "000";
-				SDA <= '0';
 				if (EXECUTE = '1') then
+					wait_counter := 0;
+					step_counter := "00";
 					bit_counter := 0;
 					-------------START CASE COMMAND-----------
 					CASE COMMAND IS
@@ -138,6 +139,22 @@ begin
 						state <= st_check_state;
 					END CASE;
 					-------------END CASE COMMAND-----------
+--				--doesn't work!!
+--				else --If there are multiple masters, release the bus when not using it.(not sure if it works)
+--					if (wait_counter >= 20) then
+--						if (step_counter = 0) then
+--							SCL <= '0';
+--							step_counter := step_counter + 1;
+--						elsif (step_counter = 1) then
+--							--SDA <= '0';
+--							SDA <= 'Z';
+--							--step_counter := step_counter + 1;
+--						else
+--						end if;
+--					else
+--						wait_counter := wait_counter + 1;
+--					end if;
+					
 				end if;	
 			-------------------------------------------------------------	
 			WHEN st_start =>

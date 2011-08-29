@@ -35,7 +35,7 @@ use IEEE.NUMERIC_STD.ALL;
 --==================================================================================================================
 entity EEPROM_I2C_INTERFACE_WRITE is
 	generic(
-		PAGE_SIZE			: integer := 32
+		CONSTANT PAGE_SIZE			: integer := 32
 		);
 	port(
 		CLK								: IN		STD_LOGIC;
