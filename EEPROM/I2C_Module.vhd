@@ -103,7 +103,7 @@ begin
 		variable data_to_read_byte				: std_logic_vector(7 downto 0) := x"00";
 		variable step_counter					: unsigned(1 downto 0) 	:= "00";
 		variable bit_counter						: integer range 0 to BIT_WIDTH  := 0;
-		--number of cycles will wait for the 'ACK' from slave
+		--number of cycles will wait for the 'ACK' from slave, or wait for 'COMMAND'
 		variable wait_counter					: integer range 0 to 255 := 0;
 		-------------------------------------------------------------------------------
 	BEGIN		
@@ -115,8 +115,12 @@ begin
 				COMMAND_RUNNING <= "000";
 				if (EXECUTE = '1') then
 					wait_counter := 0;
+<<<<<<< HEAD
 					step_counter := "00";
+=======
+>>>>>>> 25d2f37918dfe84681fb054df1b23066ac6bdd3a
 					bit_counter := 0;
+					step_counter := 0;
 					-------------START CASE COMMAND-----------
 					CASE COMMAND IS
 					WHEN CMD_CHECK_COMMAND =>
@@ -139,6 +143,7 @@ begin
 						state <= st_check_state;
 					END CASE;
 					-------------END CASE COMMAND-----------
+<<<<<<< HEAD
 --				--doesn't work!!
 --				else --If there are multiple masters, release the bus when not using it.(not sure if it works)
 --					if (wait_counter >= 20) then
@@ -155,6 +160,22 @@ begin
 --						wait_counter := wait_counter + 1;
 --					end if;
 					
+=======
+				else	--If there are multiple masters, release the bus when not using it.(not sure if it works)
+					--wait_counter := wait_counter + 1;
+					if (wait_counter >= 20) then
+						if (step_counter = 0) then
+							SCL <= '0';
+							step_counter := step_counter + 1;	
+						elsif (step_counter = 1) then
+							SDA <= '0';
+							step_counter := step_counter + 1;
+						else
+						end if;
+					else
+						wait_counter := wait_counter + 1;
+					end if;
+>>>>>>> 25d2f37918dfe84681fb054df1b23066ac6bdd3a
 				end if;	
 			-------------------------------------------------------------	
 			WHEN st_start =>
